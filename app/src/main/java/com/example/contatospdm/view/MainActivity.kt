@@ -1,16 +1,20 @@
 package com.example.contatospdm.view
 
-import android.R
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.view.ContextMenu
 import android.view.Menu
 import android.view.MenuItem
-import android.widget.ArrayAdapter
+import android.view.View
+import android.widget.AdapterView.AdapterContextMenuInfo
+import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import com.example.contatospdm.R
+import com.example.contatospdm.adapter.ContactAdapter
 import com.example.contatospdm.databinding.ActivityMainBinding
-import com.example.contatospdm.model.Constant
+import com.example.contatospdm.model.Constant.EXTRA_CONTACT
 import com.example.contatospdm.model.Contact
 
 class MainActivity : AppCompatActivity() {
@@ -23,13 +27,10 @@ class MainActivity : AppCompatActivity() {
     private val contactList: MutableList<Contact> = mutableListOf()
 
     //Adapter
-    private val contactAdapter: ArrayAdapter<String> by lazy {
-        ArrayAdapter(
+    private val contactAdapter: ContactAdapter by lazy {
+        ContactAdapter(
             this,
-            R.layout.simple_list_item_1,
-            contactList.map { contact ->
-                contact.name
-            }
+            contactList
         )
     }
 
@@ -38,36 +39,74 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(amb.root)
-        //fillContacts()
+
+        setSupportActionBar(amb.toolbarIn.toolbar)
+
+        fillContacts()
         amb.contatoLv.adapter = contactAdapter
 
         carl = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult())
         { result ->
             if(result.resultCode == RESULT_OK) {
-                val contact = result.data?.getParcelableExtra<Contact>(Constant.EXTRA_CONTACT)
+                val contact = result.data?.getParcelableExtra<Contact>(EXTRA_CONTACT)
                 contact?.let{_contact ->
-                    contactList.add(_contact)
-                    contactAdapter.add(_contact.name)
+                    if (contactList.any { it.id == contact.id }) {
+                        val position = contactList.indexOfFirst { it.id == contact.id }
+                        contactList[position] = _contact
+                    }
+                    else {
+                        contactList.add(_contact)
+                    }
                     contactAdapter.notifyDataSetChanged()
                 }
             }
 
         }
+
+        registerForContextMenu(amb.contatoLv)
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(com.example.contatospdm.R.menu.menu_main, menu)
+        menuInflater.inflate(R.menu.menu_main, menu)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when(item.itemId){
-            com.example.contatospdm.R.id.addContactMi -> {
+            R.id.addContactMi -> {
                 carl.launch(Intent(this, ContactActivity::class.java))
                 true
             }
             else -> false
+        }
+    }
+
+    override fun onCreateContextMenu(
+        menu: ContextMenu?,
+        v: View?,
+        menuInfo: ContextMenu.ContextMenuInfo?
+    ) {
+        menuInflater.inflate(R.menu.context_menu_main, menu)
+    }
+
+    override fun onContextItemSelected(item: MenuItem): Boolean {
+        val position = (item.menuInfo as AdapterContextMenuInfo).position
+        return when (item.itemId){
+            R.id.removeContactMI -> {
+                contactList.removeAt(position)
+                contactAdapter.notifyDataSetChanged()
+                Toast.makeText(this, "Contact Removed.", Toast.LENGTH_SHORT).show()
+                true
+            }
+            R.id.editContactMI -> {
+                val contact = contactList[position]
+                val editContactIntent = Intent(this, ContactActivity::class.java)
+                editContactIntent.putExtra(EXTRA_CONTACT, contact)
+                carl.launch(editContactIntent)
+                true
+            }
+            else -> { false }
         }
     }
 
@@ -83,5 +122,10 @@ class MainActivity : AppCompatActivity() {
                 )
             )
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterForContextMenu(amb.contatoLv)
     }
 }
