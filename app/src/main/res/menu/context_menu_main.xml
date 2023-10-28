@@ -8,7 +8,4 @@
         android:id="@+id/editContactMI"
         android:title="@string/edit_contact" />
 
-    <item
-        android:id="@+id/consultaContactMI"
-        android:title="@string/consultar_contact" />
 </menu>
